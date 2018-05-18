@@ -21,5 +21,5 @@ Promise.all([
   });
   // Kill the connection to the first query so the explain can run if we are
   // using the same server thread.
-  killConnection.query('KILL CONNECTION ' + queryConnection.connection.threadId);
+  killConnection.query(`KILL CONNECTION ${queryConnection.connection.threadId}`);
 });
