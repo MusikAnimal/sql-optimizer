@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Toolforge SQL Optimizer</title>
+        <link rel="stylesheet" type="text/css" media="screen" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+        <link rel="stylesheet" type="text/css" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/codemirror.min.css">
+        <link rel="stylesheet" type="text/css" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/theme/monokai.min.css">
+        <link rel="stylesheet" type="text/css" href="application.css">
+        <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/codemirror.js"></script>
+        <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/mode/sql/sql.min.js"></script>
+        <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/addon/edit/matchbrackets.min.js"></script>
+        <script type="text/javascript" src="application.js"></script>
+    </head>
+    <body>
+        <header class="app-header navbar navbar-default text-center" role="navigation">
+            <h4>Toolforge SQL Optimizer</h4>
+        </header>
+    </body>
+    <main class="container">
+        <section class="sql-form">
+            <form action="http://localhost:8004/explain">
+                <label for="sql-input">SHOW EXPLAIN</label>
+                <textarea class="form-control" rows="10" id="sql-input" name="sql">{{ sql }}</textarea>
+                <button type="submit" class="btn btn-primary btn-sql-submit">Submit</button>
+            </form>
+        </section>
+        <section class="explain-output">
+            <table class="table">
+                <thead>
+                    <tr>
+                        {% for column in results|first|keys %}
+                            <th>{{ column }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results %}
+                        <tr>
+                            {% for column in row %}
+                                <td>{{ column }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+    <footer class="text-center">
+        Brought to you by <a href="https://en.wikipedia.org/wiki/User:MusikAnimal">MusikAnimal</a> and <a href="https://meta.wikimedia.org/wiki/User:Davidwbarratt">Davidwbarratt</a>
+    </footer>
+</html>

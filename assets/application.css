@@ -1,0 +1,16 @@
+body {
+    font-size: 15px;
+}
+
+.app-header {
+    line-height: 48px;
+}
+
+.app-header h4 {
+    font-size: 24px;
+}
+
+.btn-sql-submit {
+    font-size: 18px;
+    margin: 20px 0;
+}
