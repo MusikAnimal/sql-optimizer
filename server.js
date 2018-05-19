@@ -7,7 +7,8 @@ const Twig = require('twig');
 const setTimeoutPromise = util.promisify(setTimeout);
 
 // Create a server with a host and port
-const server = Hapi.server({
+const server = new Hapi.Server();
+server.connection({
     host: 'localhost',
     port: 8004
 });
