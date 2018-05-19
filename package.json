@@ -4,8 +4,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "babel server.js --out-file dist/server.js",
-    "start": "npm start dist/server.js"
+    "build": "babel server.js --out-file server.dist.js",
+    "start": "npm start server.dist.js"
   },
   "repository": {
     "type": "git",
