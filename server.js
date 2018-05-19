@@ -4,7 +4,8 @@ const fs = require('fs');
 const util = require('util');
 const Vision = require('vision');
 const Twig = require('twig');
-const setTimeoutPromise = util.promisify(setTimeout);
+const promisify = require('util.promisify');
+const setTimeoutPromise = promisify(setTimeout);
 
 // Create a server with a host and port
 const server = new Hapi.Server();

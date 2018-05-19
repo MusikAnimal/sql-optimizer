@@ -23,6 +23,7 @@
     "inert": "4.2.1",
     "mysql2": "^1.5.3",
     "twig": "^1.11.0",
+    "util.promisify": "^1.0.0",
     "vision": "4.1.1"
   },
   "devDependencies": {
