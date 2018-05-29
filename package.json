@@ -1,7 +1,7 @@
 {
   "name": "sql-optimizer",
   "description": "",
-  "main": "index.js",
+  "main": "server.dist.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "babel server.js --out-file server.dist.js",
