@@ -6,25 +6,26 @@ const Vision = require('vision');
 const Twig = require('twig');
 const promisify = require('util.promisify');
 const setTimeoutPromise = promisify(setTimeout);
+const env = JSON.parse(fs.readFileSync('env.json', 'utf8'));
 
 // Create a server with a host and port
 const server = new Hapi.Server();
 server.connection({
-    host: 'localhost',
-    port: 8004
+    host: env.server_host,
+    port: env.server_port
 });
 
 // Static assets.
 server.route({
     method: 'GET',
-    path: '/application.css',
+    path: '/sql-optimizer/application.css',
     handler: (request, h) => {
         return h.file('assets/application.css');
     }
 });
 server.route({
     method: 'GET',
-    path: '/application.js',
+    path: '/sql-optimizer/application.js',
     handler: (request, h) => {
         return h.file('assets/application.js');
     }
@@ -32,7 +33,7 @@ server.route({
 
 server.route({
     method: 'GET',
-    path: '/',
+    path: '/sql-optimizer',
     handler: (request, h) => {
         return h.view('index');
     }
@@ -40,7 +41,7 @@ server.route({
 
 server.route({
     method: 'GET',
-    path: '/explain/{sql}',
+    path: '/sql-optimizer/explain/{sql}',
     handler: (request, h) => {
         return explain(request.params.sql).then(results => {
             return h.view('index', {sql: request.params.sql, results});
@@ -50,7 +51,7 @@ server.route({
 
 server.route({
     method: 'GET',
-    path: '/explain',
+    path: '/sql-optimizer/explain',
     handler: (request, h) => {
         if (request.query.sql) {
             return explain(request.query.sql).then(results => {
@@ -87,11 +88,14 @@ const provision = async () => {
 };
 
 function explain(sql) {
-    const env = JSON.parse(fs.readFileSync('env.json', 'utf8'));
-
     const pool = mysql.createPool(Object.assign({
         database: 'enwiki_p'
-    }, env));
+    }, {
+        host: env.db_host,
+        port: env.db_port,
+        user: env.db_user,
+        password: env.db_password
+    }));
 
     return Promise.all([
         pool.getConnection(),
@@ -101,22 +105,27 @@ function explain(sql) {
             sql = sql.replace(/\sFROM\s/i, ', SLEEP(1) FROM ');
             queryConnection.query(sql).then(() => {
                 console.log('SLEEP SUCCESS');
-            }).catch((err) => {
-                // Queried should error from being killed.
+            }).catch(err => {
+                // Queried should error from being killed. This return message is here as a safeguard,
+                // but should never actually be shown to the user.
+                return {error: 'Fatal error: ' + err.message};
             });
         });
 
-        return setTimeoutPromise(500).then(() => {
+        return setTimeoutPromise(250).then(() => {
             const explainPromise = explainConnection.query(`SHOW EXPLAIN FOR ${queryConnection.connection.threadId}`).then(result => {
                 pool.end();
                 return result[0];
             }).catch(err => {
                 pool.end();
-                console.log('SHOW EXPLAIN failed: ', err);
+                return {error: 'SHOW EXPLAIN failed: ' + err.message};
             });
 
             return explainPromise;
         });
+    }).catch(err => {
+        pool.end();
+        return {error: 'Fatal error: ' + err.message};
     });
 }
 
