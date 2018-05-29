@@ -12,7 +12,7 @@ const env = JSON.parse(fs.readFileSync('env.json', 'utf8'));
 const server = new Hapi.Server();
 server.connection({
     host: env.server_host,
-    port: env.server_port
+    port: env.server_host === 'localhost' ? env.server_port : process.env.PORT
 });
 
 // Static assets.
