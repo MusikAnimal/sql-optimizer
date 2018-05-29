@@ -4,8 +4,6 @@ const fs = require('fs');
 const util = require('util');
 const Vision = require('vision');
 const Twig = require('twig');
-const promisify = require('util.promisify');
-const setTimeoutPromise = promisify(setTimeout);
 const env = JSON.parse(fs.readFileSync('env.json', 'utf8'));
 
 // Create a server with a host and port
@@ -100,7 +98,7 @@ function explain(sql) {
     return Promise.all([
         pool.getConnection(),
         pool.getConnection(),
-    ]).then(([queryConnection, explainConnection]) => {
+    ]).then(function([queryConnection, explainConnection]) {
         queryConnection.query(`SET max_statement_time = 1`).then(() => {
             sql = sql.replace(/\sFROM\s/i, ', SLEEP(1) FROM ');
             queryConnection.query(sql).then(() => {
@@ -112,7 +110,7 @@ function explain(sql) {
             });
         });
 
-        return setTimeoutPromise(250).then(() => {
+        return new Promise(resolve => setTimeout(() => {
             const explainPromise = explainConnection.query(`SHOW EXPLAIN FOR ${queryConnection.connection.threadId}`).then(result => {
                 pool.end();
                 return result[0];
@@ -121,8 +119,8 @@ function explain(sql) {
                 return {error: 'SHOW EXPLAIN failed: ' + err.message};
             });
 
-            return explainPromise;
-        });
+            return resolve(explainPromise);
+        }, 500));
     }).catch(err => {
         pool.end();
         return {error: 'Fatal error: ' + err.message};
