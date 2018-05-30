@@ -19,10 +19,27 @@
     </body>
     <main class="container">
         <section class="sql-form">
-            <form action="/sql-optimizer/explain">
-                <label for="sql-input">SHOW EXPLAIN</label>
-                <textarea class="form-control" rows="10" id="sql-input" name="sql">{{ sql }}</textarea>
-                <button type="submit" class="btn btn-primary btn-sql-submit">Submit</button>
+            <form action="/sql-optimizer">
+                <div>
+                    <label for="sql-input" class="sql-input-label">SHOW EXPLAIN</label>
+                    <div class="pull-right use-input-group">
+                        <label for="use-input">USE</label>
+                        <input type="text" class="form-control" name="use" id="use-input" value="{{ use ?: 'enwiki_p' }}">
+                    </div>
+                </div>
+                <div class="sql-input-group">
+                    <textarea class="form-control" rows="10" id="sql-input" name="sql">{#-
+                        -#}{% if sql is defined %}{{ sql|trim }}{% else %}
+SELECT page_namespace, page_is_new, COUNT(*)
+FROM revision
+JOIN page ON rev_page = page_id AND page_namespace IN (0,1) AND page_is_redirect = 1
+JOIN centralauth_p.globaluser ON gu_name = rev_user_text
+WHERE gu_home_db = 'enwiki' AND rev_len > '2000' AND rev_user_text LIKE 'Ada%'
+GROUP BY page_namespace, page_is_new{#-
+                        -#}{% endif %}{#-
+                    -#}</textarea>
+                    <button type="submit" class="btn btn-primary btn-sql-submit">Submit</button>
+                </div>
             </form>
         </section>
         <section class="explain-output">
@@ -39,7 +56,7 @@
                     </thead>
                     <tbody>
                         {% for row in results %}
-                            <tr>
+                            <tr{% if row.rows > 1000000 %} class="bg-warning"{% endif %}>
                                 {% for column in row %}
                                     <td>{{ column }}</td>
                                 {% endfor %}
@@ -51,6 +68,10 @@
         </section>
     </main>
     <footer class="text-center">
-        Brought to you by <a href="https://en.wikipedia.org/wiki/User:MusikAnimal">MusikAnimal</a> and <a href="https://meta.wikimedia.org/wiki/User:Davidwbarratt">Davidwbarratt</a>
+        <div>
+            Brought to you by <a href="https://en.wikipedia.org/wiki/User:MusikAnimal">MusikAnimal</a> and <a href="https://meta.wikimedia.org/wiki/User:Davidwbarratt">Davidwbarratt</a>
+            &bull;
+            <a href="https://github.com/MusikAnimal/sql-optimizer">View source</a>
+        </div>
     </footer>
 </html>

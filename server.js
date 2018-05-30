@@ -29,37 +29,29 @@ server.route({
     }
 });
 
+const getHandler = function (request, h) {
+    if (request.query.sql) {
+        const use = request.query.use || 'enwiki_p';
+        return explain(request.query.sql, use).then(([queryStatus, results]) => {
+            results = queryStatus && queryStatus.error ? queryStatus : results;
+            return h.view('index', {sql: request.query.sql, use, results});
+        });
+    } else {
+        return h.view('index');
+    }
+}
+
 server.route({
     method: 'GET',
     path: '/sql-optimizer',
-    handler: (request, h) => {
-        return h.view('index');
-    }
+    handler: getHandler
 });
 
 server.route({
     method: 'GET',
-    path: '/sql-optimizer/explain/{sql}',
-    handler: (request, h) => {
-        return explain(request.params.sql).then(results => {
-            return h.view('index', {sql: request.params.sql, results});
-        });
-    }
-});
-
-server.route({
-    method: 'GET',
-    path: '/sql-optimizer/explain',
-    handler: (request, h) => {
-        if (request.query.sql) {
-            return explain(request.query.sql).then(results => {
-                return h.view('index', {sql: request.query.sql, results});
-            });
-        } else {
-            return 'No query provided';
-        }
-    }
-});
+    path: '/sql-optimizer/',
+    handler: getHandler
+})
 
 const provision = async () => {
     await server.register(Vision);
@@ -85,45 +77,52 @@ const provision = async () => {
     console.log('Server running at:', server.info.uri);
 };
 
-function explain(sql) {
-    const pool = mysql.createPool(Object.assign({
-        database: 'enwiki_p'
-    }, {
+function explain(sql, database) {
+    const pool = mysql.createPool({
+        database: 'enwiki_p',
         host: env.db_host,
         port: env.db_port,
         user: env.db_user,
         password: env.db_password
-    }));
+    });
 
     return Promise.all([
         pool.getConnection(),
         pool.getConnection(),
-    ]).then(function([queryConnection, explainConnection]) {
-        queryConnection.query(`SET max_statement_time = 1`).then(() => {
-            sql = sql.replace(/\sFROM\s/i, ', SLEEP(1) FROM ');
-            queryConnection.query(sql).then(() => {
-                console.log('SLEEP SUCCESS');
-            }).catch(err => {
-                // Queried should error from being killed. This return message is here as a safeguard,
-                // but should never actually be shown to the user.
-                return {error: 'Fatal error: ' + err.message};
+    ]).then(([queryConnection, explainConnection]) => {
+        return queryConnection.query(`USE ${database}`).then(() => {
+            return queryConnection.query(`SET max_statement_time = 1`).then(() => {
+                sql = sql.replace(/\sFROM\s/i, ', SLEEP(1) FROM ');
+                const query = queryConnection.query(sql).then(() => {
+                    console.log('SLEEP SUCCESS');
+                }).catch(err => {
+                    pool.end();
+                    if (err.errno !== 1969) {
+                        return {error: 'Query error: ' + err.message};
+                    }
+                });
+
+                const explain = new Promise(resolve => setTimeout(() => {
+                    const explainPromise = explainConnection.query(`SHOW EXPLAIN FOR ${queryConnection.connection.threadId}`).then(result => {
+                        pool.end();
+                        return result[0];
+                    }).catch(err => {
+                        pool.end();
+                        return {error: 'SHOW EXPLAIN failed: ' + err.message};
+                    });
+
+                    return resolve(explainPromise);
+                }, 500));
+
+                return Promise.all([query, explain]);
             });
+        }).catch(err => {
+            pool.end();
+            return [{error: 'USE error: ' + err.message}, null];
         });
-
-        return new Promise(resolve => setTimeout(() => {
-            const explainPromise = explainConnection.query(`SHOW EXPLAIN FOR ${queryConnection.connection.threadId}`).then(result => {
-                pool.end();
-                return result[0];
-            }).catch(err => {
-                pool.end();
-                return {error: 'SHOW EXPLAIN failed: ' + err.message};
-            });
-
-            return resolve(explainPromise);
-        }, 500));
     }).catch(err => {
         pool.end();
-        return {error: 'Fatal error: ' + err.message};
+        return [{error: 'Fatal error: ' + err.message}, null];
     });
 }
 

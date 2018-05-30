@@ -2,6 +2,10 @@ body {
     font-size: 15px;
 }
 
+footer {
+    padding: 20px 0 10px;
+}
+
 .app-header {
     line-height: 48px;
 }
@@ -10,7 +14,32 @@ body {
     font-size: 24px;
 }
 
+.sql-input-group {
+    clear: both;
+}
+
+.sql-input-label {
+    height: 45px;
+    line-height: 60px;
+    margin: 0;
+}
+
+#use-input {
+    display: inline;
+    margin-left: 5px;
+    width: 150px;
+}
+
+#sql-input {
+    width: 100%;
+}
+
 .btn-sql-submit {
     font-size: 18px;
     margin: 20px 0;
+}
+
+.explain-output {
+    overflow-x: auto;
+    white-space: nowrap;
 }
