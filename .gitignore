@@ -1,4 +1,3 @@
 /node_modules/
 /vendor/
 env.json
-server.dist.js
