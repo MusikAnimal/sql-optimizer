@@ -11,13 +11,24 @@
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/mode/sql/sql.min.js"></script>
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/addon/edit/matchbrackets.min.js"></script>
         <script type="text/javascript" src="/sql-optimizer/application.js"></script>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
     </head>
     <body>
         <header class="app-header navbar navbar-default text-center" role="navigation">
             <h4>Toolforge SQL Optimizer</h4>
         </header>
     </body>
-    <main class="container">
+    <main class="container-fluid">
+        <p class="text-center app-description">
+            This tool allows you to run EXPLAIN on Toolforge queries, and will suggest improvements if common issues are detected.
+            <br/>
+            Resources:
+            <a target="_blank" href="https://wikitech.wikimedia.org/wiki/Help:Toolforge/Database">Database access</a>
+            &bull;
+            <a target="_blank" href="https://wikitech.wikimedia.org/wiki/Help:MySQL_queries">Help:MySQL queries</a>
+            &bull;
+            <a target="_blank" href="https://quarry.wmflabs.org">Run query online</a>
+        </p>
         <section class="sql-form">
             <form action="/sql-optimizer">
                 <div>
@@ -38,34 +49,65 @@ WHERE gu_home_db = 'enwiki' AND rev_len > '2000' AND rev_user_text LIKE 'Ada%'
 GROUP BY page_namespace, page_is_new{#-
                         -#}{% endif %}{#-
                     -#}</textarea>
-                    <button type="submit" class="btn btn-primary btn-sql-submit">Submit</button>
+                    <div class="query-actions">
+                        <button type="submit" class="btn btn-primary btn-sql-submit">Submit</button>
+                        <button class="btn btn-default btn-clear">Clear</button>
+                    </div>
                 </div>
             </form>
         </section>
-        <section class="explain-output">
-            {% if results.error is defined %}
-                <div class="alert alert-danger">{{ results.error }}</div>
-            {% else %}
-                <table class="table">
-                    <thead>
-                        <tr>
-                            {% for column in results|first|keys %}
-                                <th>{{ column }}</th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in results %}
-                            <tr{% if row.rows > 1000000 %} class="bg-warning"{% endif %}>
-                                {% for column in row %}
-                                    <td>{{ column }}</td>
+        {% if results is not empty %}
+            <section class="panel panel-default explain-output">
+                <div class="panel-heading">
+                    <strong>Results</strong>
+                </div>
+                <div class="panel-body">
+                    {% if results.error is defined %}
+                        <div class="alert alert-danger">{{ results.error }}</div>
+                    {% else %}
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    {% for column in results|first|keys %}
+                                        <th>{{ column }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in results %}
+                                    {% if '' ~ loop.index0 in tips|keys %}
+                                        <tr class="bg-warning">
+                                    {% else %}
+                                        <tr>
+                                    {% endif %}
+                                    {% for column in row %}
+                                        <td>{{ column }}</td>
+                                    {% endfor %}
+                                    </tr>
+                                    {% set lastQueryId = row.id %}
                                 {% endfor %}
-                            </tr>
+                            </tbody>
+                        </table>
+                    {% endif %}
+                </div>
+            </section>
+        {% endif %}
+        {% if tips is not empty %}
+            <section class="panel panel-default tips">
+                <div class="panel-heading">
+                    <strong>Tips</strong>
+                </div>
+                <div class="panel-body">
+                    <ul>
+                        {% for id, comments in tips %}
+                            {% for comment in comments %}
+                                <li>{{ comment|raw }}</li>
+                            {% endfor %}
                         {% endfor %}
-                    </tbody>
-                </table>
-            {% endif %}
-        </section>
+                    </ul>
+                </div>
+            </section>
+        {% endif %}
     </main>
     <footer class="text-center">
         <div>

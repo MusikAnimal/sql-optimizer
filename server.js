@@ -32,14 +32,22 @@ server.route({
 const getHandler = function (request, h) {
     if (request.query.sql) {
         const use = request.query.use || 'enwiki_p';
+
         return explain(request.query.sql, use).then(([queryStatus, results]) => {
             results = queryStatus && queryStatus.error ? queryStatus : results;
-            return h.view('index', {sql: request.query.sql, use, results});
+            const tips = getTips(request.query.sql, results);
+
+            return h.view('index', {
+                sql: request.query.sql,
+                tips,
+                use,
+                results
+            });
         });
     } else {
         return h.view('index');
     }
-}
+};
 
 server.route({
     method: 'GET',
@@ -92,12 +100,13 @@ function explain(sql, database) {
     ]).then(([queryConnection, explainConnection]) => {
         return queryConnection.query(`USE ${database}`).then(() => {
             return queryConnection.query(`SET max_statement_time = 1`).then(() => {
-                sql = sql.replace(/\sFROM\s/i, ', SLEEP(1) FROM ');
+                sql = sql.replace(/\sSELECT \s/gi, 'SELECT SLEEP(1), ');
                 const query = queryConnection.query(sql).then(() => {
                     console.log('SLEEP SUCCESS');
                 }).catch(err => {
                     pool.end();
                     if (err.errno !== 1969) {
+                        console.log(err);
                         return {error: 'Query error: ' + err.message};
                     }
                 });
@@ -124,6 +133,75 @@ function explain(sql, database) {
         pool.end();
         return [{error: 'Fatal error: ' + err.message}, null];
     });
+}
+
+function getTips(sql, explain) {
+    if (!explain || explain.error) {
+        // Query errored out or query plan unavailable.
+        return {};
+    }
+
+    let tips = {};
+
+    const pushTip = (index, comment) => {
+        tips[index] = tips[index] || [];
+        if (comment && !tips[index].includes(comment)) {
+            tips[index].push(comment);
+        }
+    };
+
+    // Tip to use userindexes:
+    const userindexMatches = {
+        'revision': 'rev_user',
+        'archive': 'ar_user',
+        'logging': 'log_user',
+        'filearchive': 'fa_user',
+        'ipblocks': 'ipb_user',
+        'oldimage': 'oi_user',
+        'recentchanges': 'rc_user',
+    };
+
+    Object.keys(userindexMatches).forEach(table => {
+        if (new RegExp(`\\b${table}\\b.*\\b${userindexMatches[table]}`, 'is').test(sql)) {
+            pushTip('*', `You appear to be querying the <code>${table}</code> table and filtering by user. ` +
+                `It may be more efficient to use the <code>${table}_userindex</code> table.`);
+        }
+    });
+
+    if (/\blogging\b.*\b(log_namespace|log_title|log_page)/is.test(sql)) {
+        pushTip('*', 'You appear to be querying the <code>logging</code> table and filtering by namespace, title or page ID. ' +
+            'It may be more efficient to use the <code>logging_logindex</code> table.');
+    }
+
+    // Query plan evalution.
+    explain.forEach((plan, index) => {
+        if (plan.Extra.includes('Using filesort')) {
+            pushTip(index, `Query #${plan.id} is using ` +
+                '<a target="_blank" href="https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html#order-by-filesort">filesort</a>. ' +
+                'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' +
+                'of available indexes to avoid filesort.');
+        }
+
+        if (plan.Extra.includes('Using temporary')) {
+            pushTip(index, `Query #${plan.id} is using a ` +
+                '<a target="_blank" href="https://dev.mysql.com/doc/refman/8.0/en/internal-temporary-tables.html">temporary table</a>. ' +
+                'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' +
+                'of available indexes.');
+        }
+
+        if (plan.rows > 1000000) {
+            pushTip(index, `Query #${plan.id} scans over a million rows. Your query could likely be improved.`)
+        }
+    });
+
+    if (Object.keys(tips).length) {
+        pushTip('*', 'When running slow-running queries in your application, consider prepending ' +
+            '<code>SET STATEMENT max_statement_time = <i>N</i> FOR</code> to ' +
+            '<a target="_blank" href="https://wikitech.wikimedia.org/wiki/Help:Toolforge/Database#Query_Limits">automatically kill</a> ' +
+            'the query after <i>N</i> seconds.');
+    }
+
+    return tips;
 }
 
 provision();

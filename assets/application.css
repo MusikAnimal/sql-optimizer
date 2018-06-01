@@ -14,8 +14,14 @@ footer {
     font-size: 24px;
 }
 
+.app-description {
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
 .sql-input-group {
     clear: both;
+    margin-bottom: 20px;
 }
 
 .sql-input-label {
@@ -34,12 +40,15 @@ footer {
     width: 100%;
 }
 
-.btn-sql-submit {
+.query-actions .btn {
     font-size: 18px;
-    margin: 20px 0;
+    margin: 20px 10px 20px 0;
 }
 
 .explain-output {
-    overflow-x: auto;
     white-space: nowrap;
+}
+
+.explain-output .panel-body {
+    overflow-x: auto;
 }
