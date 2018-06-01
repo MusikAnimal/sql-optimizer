@@ -169,12 +169,12 @@ function getTips(sql, explain) {
     };
 
     Object.keys(userindexMatches).forEach(table => {
-        if (new RegExp(`\\b${table}\\b.*\\b${userindexMatches[table]}`, 'is').test(sql)) {
+        if (new RegExp(`\\b${table}\\b[^]*\\b${userindexMatches[table]}`, 'i').test(sql)) {
             pushTip('*', `You appear to be querying the <code>${table}</code> table and filtering by user. ` + `It may be more efficient to use the <code>${table}_userindex</code> table.`);
         }
     });
 
-    if (/\blogging\b.*\b(log_namespace|log_title|log_page)/is.test(sql)) {
+    if (/\blogging\b[^]*\b(log_namespace|log_title|log_page)/i.test(sql)) {
         pushTip('*', 'You appear to be querying the <code>logging</code> table and filtering by namespace, title or page ID. ' + 'It may be more efficient to use the <code>logging_logindex</code> table.');
     }
 
