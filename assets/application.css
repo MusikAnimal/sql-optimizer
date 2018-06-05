@@ -49,6 +49,10 @@ footer {
     white-space: nowrap;
 }
 
+.explain-output .alert {
+    white-space: normal;
+}
+
 .explain-output .panel-body {
     overflow-x: auto;
 }

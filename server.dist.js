@@ -127,6 +127,18 @@ function validate(sql) {
     return false;
 }
 
+function injectSleep(sql) {
+    // They're SELECTing all rows. Putting SLEEP after the * works in this case.
+    if (/^SELECT\s+\*/i.test(sql)) {
+        console.log('yeah');
+        return sql.replace(/\bFROM\b/i, ', SLEEP(1) FROM ');
+    }
+
+    // Otherwise try the normal injection of SLEEP at the front of the SELECT clause,
+    // and for all SELECTs, which is more reliable.
+    return sql.replace(/\bSELECT\s/gi, 'SELECT SLEEP(1), ');
+}
+
 function explain(sql, database) {
     let validation = validate(sql);
     if (validation) {
@@ -144,7 +156,8 @@ function explain(sql, database) {
     return Promise.all([pool.getConnection(), pool.getConnection()]).then(([queryConnection, explainConnection]) => {
         return queryConnection.query(`USE ${database}`).then(() => {
             return queryConnection.query(`SET max_statement_time = 1`).then(() => {
-                sql = sql.replace(/\bSELECT\s/gi, 'SELECT SLEEP(1), ');
+                sql = injectSleep(sql);
+
                 const query = queryConnection.query(sql).then(() => {
                     console.log('SLEEP SUCCESS');
                 }).catch(err => {
