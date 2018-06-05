@@ -120,7 +120,6 @@ function validate(sql) {
 function injectSleep(sql) {
     // They're SELECTing all rows. Putting SLEEP after the * works in this case.
     if (/^SELECT\s+\*/i.test(sql)) {
-        console.log('yeah');
         return sql.replace(/\bFROM\b/i, ', SLEEP(1) FROM ');
     }
 
@@ -254,7 +253,7 @@ function getTips(sql, explanation) {
             'the query after <i>N</i> seconds.');
     }
 
-    if (Object.keys(tips).length && /revision_userindex|logging_logindex/i) {
+    if (Object.keys(tips).length && /revision(?:_userindex)?|logging(?:_logindex)?/i.test(sql)) {
         pushTip('*', 'If you only need to query for recent revisions and log actions, using the <code>recentchanges</code> or ' +
             '<code>recentchanges_userindex</code> might be faster.');
     }
