@@ -32,17 +32,41 @@ server.route({
         return h.file('assets/application.js');
     }
 });
+server.route({
+    method: 'GET',
+    path: '/sql-optimizer/sql-formatter.min.js',
+    handler: (request, h) => {
+        return h.file('assets/vendor/sql-formatter.min.js');
+    }
+});
+
+function extractUse(sql) {
+    const matches = sql.match(/^use\s+(\w+(?:_p)?)\s*\n?;/i);
+
+    if (null === matches) {
+        return [sql, null];
+    }
+
+    sql = sql.replace(new RegExp(matches[0], 'i'), '');
+    return [sql, matches[1]];
+}
 
 const getHandler = function (request, h) {
     if (request.query.sql) {
-        const use = request.query.use || 'enwiki_p';
+        let [sql, use] = extractUse(request.query.sql);
+        use = use || request.query.use || 'enwiki_p';
 
-        return explain(request.query.sql, use).then(([queryStatus, results]) => {
-            results = queryStatus && queryStatus.error ? queryStatus : results;
-            const tips = getTips(request.query.sql, results);
+        return explain(sql, use).then(([queryStatus, results]) => {
+            let tips = {};
+
+            if (queryStatus && queryStatus.error) {
+                results = queryStatus;
+            } else {
+                [tips, results] = getTips(sql, results);
+            }
 
             return h.view('index', {
-                sql: request.query.sql,
+                sql,
                 tips,
                 use,
                 results
@@ -95,7 +119,20 @@ const provision = (() => {
     };
 })();
 
+function validate(sql) {
+    if (/SET.*?max_statement_time\s*=\s*/i.test(sql)) {
+        return { error: 'Query error: max_statement_time cannot be set when using this tool.' };
+    }
+
+    return false;
+}
+
 function explain(sql, database) {
+    let validation = validate(sql);
+    if (validation) {
+        return new Promise(resolve => resolve([validation, null]));
+    }
+
     const pool = mysql.createPool({
         database: 'enwiki_p',
         host: env.db_host,
@@ -107,7 +144,7 @@ function explain(sql, database) {
     return Promise.all([pool.getConnection(), pool.getConnection()]).then(([queryConnection, explainConnection]) => {
         return queryConnection.query(`USE ${database}`).then(() => {
             return queryConnection.query(`SET max_statement_time = 1`).then(() => {
-                sql = sql.replace(/\sSELECT \s/gi, 'SELECT SLEEP(1), ');
+                sql = sql.replace(/\bSELECT\s/gi, 'SELECT SLEEP(1), ');
                 const query = queryConnection.query(sql).then(() => {
                     console.log('SLEEP SUCCESS');
                 }).catch(err => {
@@ -118,7 +155,7 @@ function explain(sql, database) {
                     }
                 });
 
-                const explain = new Promise(resolve => setTimeout(() => {
+                const explanation = new Promise(resolve => setTimeout(() => {
                     const explainPromise = explainConnection.query(`SHOW EXPLAIN FOR ${queryConnection.connection.threadId}`).then(result => {
                         pool.end();
                         return result[0];
@@ -130,7 +167,7 @@ function explain(sql, database) {
                     return resolve(explainPromise);
                 }, 500));
 
-                return Promise.all([query, explain]);
+                return Promise.all([query, explanation]);
             });
         }).catch(err => {
             pool.end();
@@ -142,10 +179,10 @@ function explain(sql, database) {
     });
 }
 
-function getTips(sql, explain) {
-    if (!explain || explain.error) {
+function getTips(sql, explanation) {
+    if (!explanation || explanation.error) {
         // Query errored out or query plan unavailable.
-        return {};
+        return [{}, explanation];
     }
 
     let tips = {};
@@ -170,34 +207,40 @@ function getTips(sql, explain) {
 
     Object.keys(userindexMatches).forEach(table => {
         if (new RegExp(`\\b${table}\\b[^]*\\b${userindexMatches[table]}`, 'i').test(sql)) {
-            pushTip('*', `You appear to be querying the <code>${table}</code> table and filtering by user. ` + `It may be more efficient to use the <code>${table}_userindex</code> table.`);
+            pushTip('0', `You appear to be querying the <code>${table}</code> table and filtering by user. ` + `It may be more efficient to use the <code>${table}_userindex</code> table.`);
         }
     });
 
     if (/\blogging\b[^]*\b(log_namespace|log_title|log_page)/i.test(sql)) {
-        pushTip('*', 'You appear to be querying the <code>logging</code> table and filtering by namespace, title or page ID. ' + 'It may be more efficient to use the <code>logging_logindex</code> table.');
+        pushTip('0', 'You appear to be querying the <code>logging</code> table and filtering by namespace, title or page ID. ' + 'It may be more efficient to use the <code>logging_logindex</code> table.');
     }
 
-    // Query plan evalution.
-    explain.forEach((plan, index) => {
+    // Query plan evaluation.
+    explanation.forEach((plan, index) => {
         if (plan.Extra.includes('Using filesort')) {
-            pushTip(index, `Query #${plan.id} is using ` + '<a target="_blank" href="https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html#order-by-filesort">filesort</a>. ' + 'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' + 'of available indexes to avoid filesort.');
+            pushTip(index, `Query plan ${plan.id}.${index + 1} is using ` + '<a target="_blank" href="https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html#order-by-filesort">filesort</a>. ' + 'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' + 'of available indexes to avoid filesort.');
+            plan.Extra = plan.Extra.replace(/(Using filesort)/, '<span class="text-danger">$1</span>');
         }
 
         if (plan.Extra.includes('Using temporary')) {
-            pushTip(index, `Query #${plan.id} is using a ` + '<a target="_blank" href="https://dev.mysql.com/doc/refman/8.0/en/internal-temporary-tables.html">temporary table</a>. ' + 'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' + 'of available indexes.');
+            pushTip(index, `Query plan ${plan.id}.${index + 1} is using a ` + '<a target="_blank" href="https://dev.mysql.com/doc/refman/8.0/en/internal-temporary-tables.html">temporary table</a>. ' + 'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' + 'of available indexes.');
+            plan.Extra = plan.Extra.replace(/(Using temporary)/, '<span class="text-danger">$1</span>');
         }
 
         if (plan.rows > 1000000) {
-            pushTip(index, `Query #${plan.id} scans over a million rows. Your query could likely be improved.`);
+            pushTip(index, `Query plan ${plan.id}.${index + 1} scans over a million rows. Your query could likely be improved, ` + `or broken out into multiple queries to improve performance.`);
         }
     });
 
     if (Object.keys(tips).length) {
-        pushTip('*', 'When running slow-running queries in your application, consider prepending ' + '<code>SET STATEMENT max_statement_time = <i>N</i> FOR</code> to ' + '<a target="_blank" href="https://wikitech.wikimedia.org/wiki/Help:Toolforge/Database#Query_Limits">automatically kill</a> ' + 'the query after <i>N</i> seconds.');
+        pushTip('*', 'When running potentially slow queries in your application, consider prepending ' + '<code>SET STATEMENT max_statement_time = <i>N</i> FOR</code> to ' + '<a target="_blank" href="https://wikitech.wikimedia.org/wiki/Help:Toolforge/Database#Query_Limits">automatically kill</a> ' + 'the query after <i>N</i> seconds.');
     }
 
-    return tips;
+    if (Object.keys(tips).length && /revision_userindex|logging_logindex/i) {
+        pushTip('*', 'If you only need to query for recent revisions and log actions, using the <code>recentchanges</code> or ' + '<code>recentchanges_userindex</code> might be faster.');
+    }
+
+    return [tips, explanation];
 }
 
 provision();

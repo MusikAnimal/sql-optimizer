@@ -11,6 +11,7 @@
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/mode/sql/sql.min.js"></script>
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/addon/edit/matchbrackets.min.js"></script>
         <script type="text/javascript" src="/sql-optimizer/application.js"></script>
+        <script type="text/javascript" src="/sql-optimizer/sql-formatter.min.js"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1">
     </head>
     <body>
@@ -32,7 +33,7 @@
         <section class="sql-form">
             <form action="/sql-optimizer">
                 <div>
-                    <label for="sql-input" class="sql-input-label">SHOW EXPLAIN</label>
+                    <label for="sql-input" class="sql-input-label">EXPLAIN</label>
                     <div class="pull-right use-input-group">
                         <label for="use-input">USE</label>
                         <input type="text" class="form-control" name="use" id="use-input" value="{{ use ?: 'enwiki_p' }}">
@@ -51,6 +52,7 @@ GROUP BY page_namespace, page_is_new{#-
                     -#}</textarea>
                     <div class="query-actions">
                         <button type="submit" class="btn btn-primary btn-sql-submit">Submit</button>
+                        <button class="btn btn-default btn-format">Format</button>
                         <button class="btn btn-default btn-clear">Clear</button>
                     </div>
                 </div>
@@ -81,7 +83,17 @@ GROUP BY page_namespace, page_is_new{#-
                                         <tr>
                                     {% endif %}
                                     {% for column in row %}
-                                        <td>{{ column }}</td>
+                                        <td>
+                                            {% if loop.first %}
+                                                {# The ID column. Here we append a query plan ID #}
+                                                {{ column ~ '.' ~ loop.parent.loop.index }}
+                                            {% elseif loop.index == 5 %}
+                                                {# Make the 'possible_keys' for readable #}
+                                                {{ column|replace({',': ', '}) }}
+                                            {% else %}
+                                                {{ column }}
+                                            {% endif %}
+                                        </td>
                                     {% endfor %}
                                     </tr>
                                     {% set lastQueryId = row.id %}

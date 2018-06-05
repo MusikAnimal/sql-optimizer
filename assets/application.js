@@ -7,6 +7,13 @@ $(function () {
         lineNumbers: true
     });
 
+    $('.btn-format').on('click', function (e) {
+        e.preventDefault();
+        editor.setValue(
+            sqlFormatter.format(editor.getValue())
+        );
+    });
+
     $('.btn-clear').on('click', function (e) {
         e.preventDefault();
         editor.setValue('');
