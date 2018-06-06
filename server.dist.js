@@ -40,6 +40,8 @@ server.route({
     }
 });
 
+/********* EXPLAIN ROUTES *********/
+
 function extractUse(sql) {
     const matches = sql.match(/^use\s+(\w+(?:_p)?)\s*\n?;/i);
 
@@ -76,48 +78,6 @@ const getHandler = function (request, h) {
         return h.view('index');
     }
 };
-
-server.route({
-    method: 'GET',
-    path: '/sql-optimizer',
-    handler: getHandler
-});
-
-server.route({
-    method: 'GET',
-    path: '/sql-optimizer/',
-    handler: getHandler
-});
-
-const provision = (() => {
-    var _ref = _asyncToGenerator(function* () {
-        yield server.register(Vision);
-        yield server.register(require('inert'));
-
-        server.views({
-            engines: {
-                twig: {
-                    compile: function (src, options) {
-                        const template = Twig.twig({ id: options.filename, data: src });
-
-                        return function (context) {
-                            return template.render(context);
-                        };
-                    }
-                }
-            },
-            relativeTo: __dirname,
-            path: 'templates'
-        });
-
-        yield server.start();
-        console.log('Server running at:', server.info.uri);
-    });
-
-    return function provision() {
-        return _ref.apply(this, arguments);
-    };
-})();
 
 function validate(sql) {
     if (/SET.*?max_statement_time\s*=\s*/i.test(sql)) {
@@ -254,5 +214,120 @@ function getTips(sql, explanation) {
 
     return [tips, explanation];
 }
+
+server.route({
+    method: 'GET',
+    path: '/sql-optimizer',
+    handler: getHandler
+});
+server.route({
+    method: 'GET',
+    path: '/sql-optimizer/',
+    handler: getHandler
+});
+
+/********* DESCRIBE ROUTES *********/
+
+server.route({
+    method: 'GET',
+    path: '/sql-optimizer/describe/{database}',
+    handler: (request, h) => {
+        return showTables(request.params.database).then(results => {
+            return h.view('tables', {
+                database: request.params.database,
+                results: results[0]
+            });
+        });
+    }
+});
+server.route({
+    method: 'GET',
+    path: '/sql-optimizer/describe/{database}/{table}',
+    handler: (request, h) => {
+        return describeTable(request.params.database, request.params.table).then(results => {
+            return h.view('describe', {
+                database: request.params.database,
+                table: request.params.table,
+                results: results[0]
+            });
+        });
+    }
+});
+
+function showTables(database) {
+    const connection = mysql.createConnection({
+        database: 'enwiki_p',
+        host: env.db_host,
+        port: env.db_port,
+        user: env.db_user,
+        password: env.db_password
+    });
+
+    return connection.then(client => {
+        return client.query(`USE ${database}`).then(() => {
+            return client.query('SHOW TABLES').then(results => {
+                client.end();
+                return results;
+            });
+        }).catch(err => {
+            client.end();
+            return [{ error: 'USE error: ' + err.message }];
+        });
+    });
+}
+
+function describeTable(database, table) {
+    const connection = mysql.createConnection({
+        database: 'enwiki_p',
+        host: env.db_host,
+        port: env.db_port,
+        user: env.db_user,
+        password: env.db_password
+    });
+
+    return connection.then(client => {
+        return client.query(`USE ${database}`).then(() => {
+            return client.query(`DESCRIBE ${database}.${table}`).then(results => {
+                client.end();
+                return results;
+            });
+        }).catch(err => {
+            client.end();
+            return [{ error: 'USE error: ' + err.message }];
+        });
+    });
+}
+
+/********* STARTING THE SERVICE *********/
+
+const provision = (() => {
+    var _ref = _asyncToGenerator(function* () {
+        yield server.register(Vision);
+        yield server.register(require('inert'));
+
+        server.views({
+            engines: {
+                twig: {
+                    compile: function (src, options) {
+                        const template = Twig.twig({ id: options.filename, data: src });
+
+                        return function (context) {
+                            return template.render(context);
+                        };
+                    }
+                }
+            },
+            relativeTo: __dirname,
+            path: 'templates'
+        });
+
+        yield server.start();
+        console.log('Server running at:', server.info.uri);
+    });
+
+    return function provision() {
+        return _ref.apply(this, arguments);
+    };
+})();
 
 provision();

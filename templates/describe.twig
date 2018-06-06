@@ -1,0 +1,33 @@
+<div class="modal-body">
+    {% if results.error %}
+        <div class="alert alert-danger">{{ results.error }}</div>
+    {% else %}
+        <p class="schema-browser-title text-center">{{ database }}.{{ table }}</p>
+        <div class="schema-browser-table">
+            <table class="table">
+                <thead>
+                    <tr>
+                        {% for column in results|first|keys %}
+                            <th>{{ column }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results %}
+                        <tr>
+                            {% for column in row %}
+                                <td>{{ column }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-default pull-left schema-browser-btn">
+        <span class="glyphicon glyphicon-chevron-left"></span>
+        Back to table list
+    </button>
+</div>

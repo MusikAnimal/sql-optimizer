@@ -40,9 +40,19 @@ footer {
     width: 100%;
 }
 
-.query-actions .btn {
+.query-actions .btn,
+.schema-browser-btn-initial {
     font-size: 18px;
     margin: 20px 10px 20px 0;
+}
+
+.schema-browser-btn-initial {
+    margin-right: 0;
+}
+
+.schema-browser-table {
+    overflow-x: auto;
+    white-space: nowrap;
 }
 
 .explain-output {
@@ -55,4 +65,13 @@ footer {
 
 .explain-output .panel-body {
     overflow-x: auto;
+}
+
+.schema-browser-title {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+
+.schema-browser-content .table tbody {
+    font-family: 'Courier New', monospace;
 }

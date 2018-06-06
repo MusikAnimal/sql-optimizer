@@ -7,6 +7,7 @@
         <link rel="stylesheet" type="text/css" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/theme/monokai.min.css">
         <link rel="stylesheet" type="text/css" href="/sql-optimizer/application.css">
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/codemirror.js"></script>
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/mode/sql/sql.min.js"></script>
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/addon/edit/matchbrackets.min.js"></script>
@@ -40,7 +41,7 @@
                     </div>
                 </div>
                 <div class="sql-input-group">
-                    <textarea class="form-control" rows="10" id="sql-input" name="sql">{#-
+                    <textarea class="form-control" rows="5" id="sql-input" name="sql">{#-
                         -#}{% if sql is defined %}{{ sql|trim }}{% else %}
 SELECT page_namespace, page_is_new, COUNT(*)
 FROM revision
@@ -50,10 +51,24 @@ WHERE gu_home_db = 'enwiki' AND rev_len > '2000' AND rev_user_text LIKE 'Ada%'
 GROUP BY page_namespace, page_is_new{#-
                         -#}{% endif %}{#-
                     -#}</textarea>
+                    <div class="schema-browser-container pull-right">
+                        <button type="button" class="btn btn-default schema-browser-btn schema-browser-btn-initial" data-toggle="modal" data-target="#schema-browser">Schema browser</button>
+                        <div class="modal fade" id="schema-browser" tabindex="-1" role="dialog" aria-labelledby="schema-browser-label">
+                            <div class="modal-dialog" role="document">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                        <h4 class="modal-title" id="schema-browser-label">Schema browser</h4>
+                                    </div>
+                                    <div class="schema-browser-content"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="query-actions">
                         <button type="submit" class="btn btn-primary btn-sql-submit">Submit</button>
-                        <button class="btn btn-default btn-format">Format</button>
-                        <button class="btn btn-default btn-clear">Clear</button>
+                        <button type="button" class="btn btn-default btn-format">Format</button>
+                        <button type="button" class="btn btn-default btn-clear">Clear</button>
                     </div>
                 </div>
             </form>

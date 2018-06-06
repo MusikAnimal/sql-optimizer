@@ -1,0 +1,16 @@
+<div class="modal-body">
+    {% if results.error %}
+        <div class="alert alert-danger">{{ results.error }}</div>
+    {% else %}
+        <p class="schema-browser-title text-center">{{ database }}</p>
+        <ul>
+            {% for row in results %}
+                {% for column in row %}
+                    <li>
+                        <a href="#" class="schema-browser-table-link" data-table="{{ column }}">{{ column }}</a>
+                    </li>
+                {% endfor %}
+            {% endfor %}
+        </ul>
+    {% endif %}
+</div>
