@@ -190,20 +190,13 @@ function getTips(sql, explanation) {
 
     // Query plan evaluation.
     explanation.forEach((plan, index) => {
-        if (plan.Extra.includes('Using filesort')) {
+        if (/Using filesort|Using temporary/.test(plan.Extra)) {
             pushTip(index, `Query plan ${plan.id}.${index + 1} is using ` +
-                '<a target="_blank" href="https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html#order-by-filesort">filesort</a>. ' +
+                '<a target="_blank" href="https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html#order-by-filesort">filesort</a> ' +
+                'or a <a target="_blank" href="https://dev.mysql.com/doc/refman/8.0/en/internal-temporary-tables.html">temporary table</a>. ' +
                 'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' +
                 'of available indexes to avoid filesort.');
-            plan.Extra = plan.Extra.replace(/(Using filesort)/, '<span class="text-danger">$1</span>');
-        }
-
-        if (plan.Extra.includes('Using temporary')) {
-            pushTip(index, `Query plan ${plan.id}.${index + 1} is using a ` +
-                '<a target="_blank" href="https://dev.mysql.com/doc/refman/8.0/en/internal-temporary-tables.html">temporary table</a>. ' +
-                'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' +
-                'of available indexes.');
-            plan.Extra = plan.Extra.replace(/(Using temporary)/, '<span class="text-danger">$1</span>');
+            plan.Extra = plan.Extra.replace(/(Using (filesort|filesort))/, '<span class="text-danger">$1</span>');
         }
 
         if (plan.rows > 1000000) {
@@ -220,7 +213,7 @@ function getTips(sql, explanation) {
     }
 
     if (Object.keys(tips).length && /revision(?:_userindex)?|logging(?:_logindex)?/i.test(sql)) {
-        pushTip('*', 'If you only need to query for recent revisions and log actions, using the <code>recentchanges</code> or ' +
+        pushTip('*', 'If you only need to query for recent revisions and log actions, using <code>recentchanges</code> or ' +
             '<code>recentchanges_userindex</code> might be faster.');
     }
 
