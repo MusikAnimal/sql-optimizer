@@ -213,7 +213,7 @@ function getTips(sql, explanation) {
     }
 
     if (Object.keys(tips).length && /revision(?:_userindex)?|logging(?:_logindex)?/i.test(sql)) {
-        pushTip('*', 'If you only need to query for recent revisions and log actions, using <code>recentchanges</code> or ' +
+        pushTip('*', 'If you only need to query for recent revisions and log actions (within the last 30 days), using <code>recentchanges</code> or ' +
             '<code>recentchanges_userindex</code> might be faster.');
     }
 
