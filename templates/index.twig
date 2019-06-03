@@ -45,8 +45,9 @@
                         -#}{% if sql is defined %}{{ sql|trim }}{% else %}
 SELECT page_namespace, page_is_new, COUNT(*)
 FROM revision
+JOIN actor ON actor_id = rev_actor
 JOIN page ON rev_page = page_id AND page_namespace IN (0,1) AND page_is_redirect = 1
-JOIN centralauth_p.globaluser ON gu_name = rev_user_text
+JOIN centralauth_p.globaluser ON gu_name = actor_name
 WHERE gu_home_db = 'enwiki' AND rev_len > '2000' AND rev_user_text LIKE 'Ada%'
 GROUP BY page_namespace, page_is_new{#-
                         -#}{% endif %}{#-

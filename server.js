@@ -179,13 +179,13 @@ function getTips(sql, explanation) {
 
     // Tip to use userindexes:
     const userindexMatches = {
-        'revision': 'rev_user',
-        'archive': 'ar_user',
-        'logging': 'log_user',
-        'filearchive': 'fa_user',
-        'ipblocks': 'ipb_user',
-        'oldimage': 'oi_user',
-        'recentchanges': 'rc_user',
+        'revision': 'rev_actor',
+        'archive': 'ar_actor',
+        'logging': 'log_actor',
+        'filearchive': 'fa_actor',
+        'ipblocks': 'ipb_actor',
+        'oldimage': 'oi_actor',
+        'recentchanges': 'rc_actor',
     };
 
     Object.keys(userindexMatches).forEach(table => {
