@@ -95,7 +95,14 @@ function injectSleep(sql) {
 
     // Otherwise try the normal injection of SLEEP at the front of the SELECT clause,
     // and for all SELECTs, which is more reliable.
-    return sql.replace(/\bSELECT\s/gi, `SELECT SLEEP(${TIMEOUT}), `);
+    sql = sql.replace(/\bSELECT\s/gi, `SELECT SLEEP(${TIMEOUT}), `);
+
+    // Remove any SLEEPs that were added to a subquery that used with an IN clause.
+    const regex = new RegExp(`IN\\s*\\(\\s*SELECT SLEEP\\(${TIMEOUT}\\),`, 'gi');
+    sql = sql.replace(regex, 'IN ( SELECT');
+
+    console.log(sql);
+    return sql;
 }
 
 function explain(sql, database) {
