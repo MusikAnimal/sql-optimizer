@@ -12,6 +12,10 @@ const env = JSON.parse(fs.readFileSync('env.json', 'utf8'));
 
 // Create a server with a host and port
 const server = new Hapi.Server();
+
+// How long the query should SLEEP, in seconds.
+const TIMEOUT = 1;
+
 server.connection({
     host: env.server_host,
     port: env.server_host === 'localhost' ? env.server_port : process.env.PORT
@@ -90,12 +94,12 @@ function validate(sql) {
 function injectSleep(sql) {
     // They're SELECTing all rows. Putting SLEEP after the * works in this case.
     if (/^SELECT\s+\*/i.test(sql)) {
-        return sql.replace(/\bFROM\b/i, ', SLEEP(1) FROM ');
+        return sql.replace(/\bFROM\b/i, `, SLEEP(${TIMEOUT}) FROM `);
     }
 
     // Otherwise try the normal injection of SLEEP at the front of the SELECT clause,
     // and for all SELECTs, which is more reliable.
-    return sql.replace(/\bSELECT\s/gi, 'SELECT SLEEP(1), ');
+    return sql.replace(/\bSELECT\s/gi, `SELECT SLEEP(${TIMEOUT}), `);
 }
 
 function explain(sql, database) {
@@ -114,20 +118,21 @@ function explain(sql, database) {
 
     return Promise.all([pool.getConnection(), pool.getConnection()]).then(([queryConnection, explainConnection]) => {
         return queryConnection.query(`USE ${database}`).then(() => {
-            return queryConnection.query(`SET max_statement_time = 1`).then(() => {
+            return queryConnection.query(`SET max_statement_time = ${TIMEOUT}`).then(() => {
                 sql = injectSleep(sql);
 
                 const query = queryConnection.query(sql).then(() => {
                     console.log('SLEEP SUCCESS');
                 }).catch(err => {
                     pool.end();
-                    if (err.errno !== 1969) {
+                    if (![1028, 1969].includes(err.errno)) {
                         console.log(err);
                         return { error: 'Query error: ' + err.message };
                     }
                 });
 
                 const explanation = new Promise(resolve => setTimeout(() => {
+                    console.log(`CONNECTION ID: ${queryConnection.connection.threadId}`);
                     const explainPromise = explainConnection.query(`SHOW EXPLAIN FOR ${queryConnection.connection.threadId}`).then(result => {
                         pool.end();
                         return result[0];
