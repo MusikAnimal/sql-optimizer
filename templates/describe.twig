@@ -2,13 +2,13 @@
     {% if results.error %}
         <div class="alert alert-danger">{{ results.error }}</div>
     {% else %}
-        <p class="schema-browser-title text-center">{{ database }}.{{ table }}</p>
+        <p class="schema-browser-title text-center">{{ database|escape('html') }}.{{ table|escape('html') }}</p>
         <div class="schema-browser-table">
             <table class="table">
                 <thead>
                     <tr>
                         {% for column in results|first|keys %}
-                            <th>{{ column }}</th>
+                            <th>{{ column|escape('html') }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
@@ -16,7 +16,7 @@
                     {% for row in results %}
                         <tr>
                             {% for column in row %}
-                                <td>{{ column }}</td>
+                                <td>{{ column|escape('html') }}</td>
                             {% endfor %}
                         </tr>
                     {% endfor %}
