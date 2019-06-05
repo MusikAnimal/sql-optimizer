@@ -18,11 +18,11 @@
   "homepage": "https://github.com/MusikAnimal/sql-optimizer#readme",
   "dependencies": {
     "babel-preset-env": "^1.7.0",
-    "codemirror": "^5.37.0",
+    "codemirror": "^5.47.0",
     "hapi": "16.6.2",
     "inert": "4.2.1",
-    "mysql2": "^1.5.3",
-    "twig": "^1.11.0",
+    "mysql2": "^1.6.5",
+    "twig": "^1.13.0",
     "vision": "4.1.1"
   },
   "devDependencies": {
