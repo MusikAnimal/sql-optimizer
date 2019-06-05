@@ -81,7 +81,7 @@ GROUP BY page_namespace, page_is_new{#-
                 </div>
                 <div class="panel-body">
                     {% if results.error is defined %}
-                        <div class="alert alert-danger">{{ results.error }}</div>
+                        <div class="alert alert-danger">{{ results.error|escape('html') }}</div>
                     {% else %}
                         <table class="table">
                             <thead>
