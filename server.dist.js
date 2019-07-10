@@ -198,12 +198,21 @@ function getTips(sql, explanation) {
   };
   Object.keys(userindexMatches).forEach(table => {
     if (new RegExp(`\\b${table}\\b[^]*\\b${userindexMatches[table]}`, 'i').test(sql)) {
-      pushTip('0', `You appear to be querying the <code>${table}</code> table and filtering by user. ` + `It may be more efficient to use the <code>${table}_userindex</code> table.`);
+      pushTip('0', `You appear to be querying the <code>${table}</code> table and filtering by user. ` + `It may be more efficient to use the <code>${table}_userindex</code> view.`);
+    }
+  }); // Tip to use specialized actor and comment views:
+
+  const specialViews = ['filearchive', 'image', 'ipblocks', 'logging', 'oldimage', 'protected_titles', 'recentchanges', 'revision'];
+  specialViews.forEach(table => {
+    const matches = sql.match(new RegExp(`\\b${table}[^]*(?:\\b(actor|comment))\\b`, 'i'));
+
+    if (matches) {
+      pushTip('0', `You appear to be querying <code>${matches[1]}</code> and <code>${table}</code>. ` + `If you only care about ${matches[1]}s in the ${table} table, use the ` + '<a href="https://wikitech.wikimedia.org/wiki/News/Actor_storage_changes_on_the_Wiki_Replicas#special-views">specialized view</a> ' + `<code>${matches[1]}_${table}</code> to avoid unnecessary subqueries.`);
     }
   });
 
   if (/\blogging\b[^]*\b(log_namespace|log_title|log_page)/i.test(sql)) {
-    pushTip('0', 'You appear to be querying the <code>logging</code> table and filtering by namespace, title or page ID. ' + 'It may be more efficient to use the <code>logging_logindex</code> table.');
+    pushTip('0', 'You appear to be querying the <code>logging</code> table and filtering by namespace, title or page ID. ' + 'It may be more efficient to use the <code>logging_logindex</code> view.');
   } // Query plan evaluation.
 
 
@@ -223,7 +232,7 @@ function getTips(sql, explanation) {
   }
 
   if (Object.keys(tips).length && /revision(?:_userindex)?|logging(?:_logindex)?/i.test(sql)) {
-    pushTip('*', 'If you only need to query for recent revisions and log actions (within the last 30 days), using <code>recentchanges</code> or ' + '<code>recentchanges_userindex</code> might be faster.');
+    pushTip('*', 'If you only need to query for recent revisions and log actions (within the last 30 days), ' + 'using <code>recentchanges</code> or <code>recentchanges_userindex</code> might be faster.');
   }
 
   return [tips, explanation];
