@@ -16,6 +16,9 @@
     "url": "https://github.com/MusikAnimal/sql-optimizer/issues"
   },
   "homepage": "https://github.com/MusikAnimal/sql-optimizer#readme",
+  "engines": {
+    "node": "6.11.0"
+  },
   "dependencies": {
     "babel-preset-env": "^1.7.0",
     "codemirror": "^5.47.0",
