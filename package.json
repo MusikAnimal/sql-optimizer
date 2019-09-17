@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "babel-preset-env": "^1.7.0",
-    "codemirror": "^5.47.0",
+    "codemirror": "^5.48.4",
     "hapi": "16.7.0",
     "inert": "4.2.1",
     "mysql2": "^1.6.5",
