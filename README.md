@@ -2,7 +2,7 @@
 
 Run EXPLAIN on Wikimedia Toolforge SQL queries
 
-https://tools.wmflabs.org/sql-optimizer
+https://sql-optimizer.toolforge.org
 
 ## Report bugs
 
@@ -37,4 +37,4 @@ Installation:
   the `db_port` would be `4711`.
 * `npm run-script build && npm run-script start` - note you will need to re-run this
   command as you make changes during development.
-* You should be up and running at http://localhost:8000/sql-optimizer
+* You should be up and running at http://localhost:8000

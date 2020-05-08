@@ -5,14 +5,14 @@
         <link rel="stylesheet" type="text/css" media="screen" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
         <link rel="stylesheet" type="text/css" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/codemirror.min.css">
         <link rel="stylesheet" type="text/css" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/theme/monokai.min.css">
-        <link rel="stylesheet" type="text/css" href="/sql-optimizer/application.css">
+        <link rel="stylesheet" type="text/css" href="/application.css">
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/codemirror.js"></script>
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/mode/sql/sql.min.js"></script>
         <script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/codemirror/5.34.0/addon/edit/matchbrackets.min.js"></script>
-        <script type="text/javascript" src="/sql-optimizer/application.js"></script>
-        <script type="text/javascript" src="/sql-optimizer/sql-formatter.min.js"></script>
+        <script type="text/javascript" src="/application.js"></script>
+        <script type="text/javascript" src="/sql-formatter.min.js"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1">
     </head>
     <body>
@@ -32,7 +32,7 @@
             <a target="_blank" href="https://quarry.wmflabs.org">Run query online</a>
         </p>
         <section class="sql-form">
-            <form action="/sql-optimizer">
+            <form action="/">
                 <div>
                     <label for="sql-input" class="sql-input-label">EXPLAIN</label>
                     <div class="pull-right use-input-group">
@@ -93,7 +93,7 @@ GROUP BY page_namespace, page_is_new{#-
                             </thead>
                             <tbody>
                                 {% for row in results %}
-                                    {% if '' ~ loop.index0 in tips|keys %}
+                                    {% if '' ~ loop.index0 in (tips.general|keys|merge(tips.specific|keys)) %}
                                         <tr class="bg-warning">
                                     {% else %}
                                         <tr>
@@ -126,13 +126,29 @@ GROUP BY page_namespace, page_is_new{#-
                     <strong>Tips</strong>
                 </div>
                 <div class="panel-body">
-                    <ul>
-                        {% for id, comments in tips %}
-                            {% for comment in comments %}
-                                <li>{{ comment|raw }}</li>
+                    {% if tips.specific is not empty %}
+                        Specific:
+                        <ul class="tips-specific">
+                            {% for id, comments in tips.specific %}
+                                {% for comment in comments %}
+                                    <li>{{ comment|raw }}</li>
+                                {% endfor %}
                             {% endfor %}
-                        {% endfor %}
-                    </ul>
+                        </ul>
+                    {% endif %}
+
+                    {% if tips.general is not empty %}
+                        {% if tips.specific is not empty %}
+                            General:
+                        {% endif %}
+                        <ul class="tips-general">
+                            {% for id, comments in tips.general %}
+                                {% for comment in comments %}
+                                    <li>{{ comment|raw }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
                 </div>
             </section>
         {% endif %}

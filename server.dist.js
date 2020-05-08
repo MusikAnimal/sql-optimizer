@@ -10,8 +10,6 @@ const mysql = require('mysql2/promise');
 
 const fs = require('fs');
 
-const util = require('util');
-
 const Vision = require('vision');
 
 const Twig = require('twig');
@@ -20,7 +18,10 @@ const env = JSON.parse(fs.readFileSync('env.json', 'utf8')); // Create a server 
 
 const server = new Hapi.Server(); // How long the query should SLEEP, in seconds.
 
-const TIMEOUT = 1;
+const TIMEOUT = 1; // Param constants.
+
+const TIPS_GENERAL = 'general';
+const TIPS_SPECIFIC = 'specific';
 server.connection({
   host: env.server_host,
   port: env.server_host === 'localhost' ? env.server_port : process.env.PORT
@@ -28,21 +29,21 @@ server.connection({
 
 server.route({
   method: 'GET',
-  path: '/sql-optimizer/application.css',
+  path: '/application.css',
   handler: (request, h) => {
     return h.file('assets/application.css');
   }
 });
 server.route({
   method: 'GET',
-  path: '/sql-optimizer/application.js',
+  path: '/application.js',
   handler: (request, h) => {
     return h.file('assets/application.js');
   }
 });
 server.route({
   method: 'GET',
-  path: '/sql-optimizer/sql-formatter.min.js',
+  path: '/sql-formatter.min.js',
   handler: (request, h) => {
     return h.file('assets/vendor/sql-formatter.min.js');
   }
@@ -84,6 +85,18 @@ const getHandler = function (request, h) {
     return h.view('index');
   }
 };
+
+function getUseError(err, database) {
+  let error = `USE error: ${err.message}`;
+
+  if (database && database.slice(-2) !== '_p') {
+    error += '; Public database names should end with "_p"';
+  }
+
+  return {
+    error
+  };
+}
 
 function validate(sql) {
   if (/SET.*?max_statement_time\s*=\s*/i.test(sql)) {
@@ -149,7 +162,7 @@ function explain(sql, database) {
           }).catch(err => {
             pool.end();
             return {
-              error: 'SHOW EXPLAIN failed: ' + err.message
+              error: 'SHOW EXPLAIN failed: ' + err.message + ' This may be a connection issue. If you believe your query is valid, try resubmitting.'
             };
           });
           return resolve(explainPromise);
@@ -158,9 +171,7 @@ function explain(sql, database) {
       });
     }).catch(err => {
       pool.end();
-      return [{
-        error: 'USE error: ' + err.message
-      }, null];
+      return [getUseError(err, database), null];
     });
   }).catch(err => {
     pool.end();
@@ -176,13 +187,16 @@ function getTips(sql, explanation) {
     return [{}, explanation];
   }
 
-  let tips = {};
+  let tips = {
+    specific: {},
+    general: {}
+  };
 
-  const pushTip = (index, comment) => {
-    tips[index] = tips[index] || [];
+  const pushTip = (index, comment, type = TIPS_GENERAL) => {
+    tips[type][index] = tips[type][index] || [];
 
-    if (comment && !tips[index].includes(comment)) {
-      tips[index].push(comment);
+    if (comment && !tips[type][index].includes(comment)) {
+      tips[type][index].push(comment);
     }
   }; // Tip to use userindexes:
 
@@ -198,7 +212,8 @@ function getTips(sql, explanation) {
   };
   Object.keys(userindexMatches).forEach(table => {
     if (new RegExp(`\\b${table}\\b[^]*\\b${userindexMatches[table]}`, 'i').test(sql)) {
-      pushTip('0', `You appear to be querying the <code>${table}</code> table and filtering by user. ` + `It may be more efficient to use the <code>${table}_userindex</code> view.`);
+      const comment = `You appear to be querying the <code>${table}</code> table and filtering by user. ` + `It may be more efficient to use the <code>${table}_userindex</code> view.`;
+      pushTip('0', comment, TIPS_SPECIFIC);
     }
   }); // Tip to use specialized actor and comment views:
 
@@ -207,7 +222,8 @@ function getTips(sql, explanation) {
     const matches = sql.match(new RegExp(`\\b${table}[^]*(?:\\b(actor|comment))\\b`, 'i'));
 
     if (matches) {
-      pushTip('0', `You appear to be querying <code>${matches[1]}</code> and <code>${table}</code>. ` + `If you only care about ${matches[1]}s in the ${table} table, use the ` + '<a href="https://wikitech.wikimedia.org/wiki/News/Actor_storage_changes_on_the_Wiki_Replicas#special-views">specialized view</a> ' + `<code>${matches[1]}_${table}</code> to avoid unnecessary subqueries.`);
+      const comment = `You appear to be querying <code>${matches[1]}</code> and <code>${table}</code>. ` + `If you only care about ${matches[1]}s in the ${table} table, use the ` + '<a href="https://wikitech.wikimedia.org/wiki/News/Actor_storage_changes_on_the_Wiki_Replicas#special-views">specialized view</a> ' + `<code>${matches[1]}_${table}</code> to avoid unnecessary subqueries.`;
+      pushTip('0', comment, TIPS_SPECIFIC);
     }
   });
 
@@ -218,21 +234,25 @@ function getTips(sql, explanation) {
 
   explanation.forEach((plan, index) => {
     if (/Using filesort|Using temporary/.test(plan.Extra)) {
-      pushTip(index, `Query plan ${plan.id}.${index + 1} is using ` + '<a target="_blank" href="https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html#order-by-filesort">filesort</a> ' + 'or a <a target="_blank" href="https://dev.mysql.com/doc/refman/8.0/en/internal-temporary-tables.html">temporary table</a>. ' + 'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' + 'of available indexes to avoid filesort.');
+      const comment = `Query plan ${plan.id}.${index + 1} is using ` + '<a target="_blank" href="https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html#order-by-filesort">filesort</a> ' + 'or a <a target="_blank" href="https://dev.mysql.com/doc/refman/8.0/en/internal-temporary-tables.html">temporary table</a>. ' + 'This is usually an indication of an inefficient query. If you find your query is slow, try taking advantage ' + 'of available indexes to avoid filesort.';
+      pushTip(index, comment, TIPS_GENERAL);
       plan.Extra = plan.Extra.replace(/(Using (filesort|filesort))/, '<span class="text-danger">$1</span>');
     }
 
     if (plan.rows > 1000000) {
-      pushTip(index, `Query plan ${plan.id}.${index + 1} scans over a million rows. Your query could likely be improved, ` + `or broken out into multiple queries to improve performance.`);
+      const comment = `Query plan ${plan.id}.${index + 1} scans over a million rows. Your query could likely be improved, ` + `or broken out into multiple queries to improve performance.`;
+      pushTip(index, comment, TIPS_GENERAL);
     }
   });
 
-  if (Object.keys(tips).length) {
-    pushTip('*', 'When running potentially slow queries in your application, consider prepending ' + '<code>SET STATEMENT max_statement_time = <i>N</i> FOR</code> to ' + '<a target="_blank" href="https://wikitech.wikimedia.org/wiki/Help:Toolforge/Database#Query_Limits">automatically kill</a> ' + 'the query after <i>N</i> seconds.');
-  }
+  if (Object.keys(tips.specific).length || Object.keys(tips.general).length) {
+    let comment = 'When running potentially slow queries in your application, consider prepending ' + '<code>SET STATEMENT max_statement_time = <i>N</i> FOR</code> to ' + '<a target="_blank" href="https://wikitech.wikimedia.org/wiki/Help:Toolforge/Database#Query_Limits">automatically kill</a> ' + 'the query after <i>N</i> seconds.';
+    pushTip('*', comment, TIPS_GENERAL);
 
-  if (Object.keys(tips).length && /revision(?:_userindex)?|logging(?:_logindex)?/i.test(sql)) {
-    pushTip('*', 'If you only need to query for recent revisions and log actions (within the last 30 days), ' + 'using <code>recentchanges</code> or <code>recentchanges_userindex</code> might be faster.');
+    if (/revision(?:_userindex)?|logging(?:_logindex)?/i.test(sql)) {
+      comment = 'If you only need to query for recent revisions and log actions (within the last 30 days), ' + 'using <code>recentchanges</code> or <code>recentchanges_userindex</code> might be faster.';
+      pushTip('*', comment, TIPS_GENERAL);
+    }
   }
 
   return [tips, explanation];
@@ -240,19 +260,14 @@ function getTips(sql, explanation) {
 
 server.route({
   method: 'GET',
-  path: '/sql-optimizer',
-  handler: getHandler
-});
-server.route({
-  method: 'GET',
-  path: '/sql-optimizer/',
+  path: '/',
   handler: getHandler
 });
 /********* DESCRIBE ROUTES *********/
 
 server.route({
   method: 'GET',
-  path: '/sql-optimizer/describe/{database}',
+  path: '/describe/{database}',
   handler: (request, h) => {
     return showTables(request.params.database).then(results => {
       return h.view('tables', {
@@ -264,7 +279,7 @@ server.route({
 });
 server.route({
   method: 'GET',
-  path: '/sql-optimizer/describe/{database}/{table}',
+  path: '/describe/{database}/{table}',
   handler: (request, h) => {
     return describeTable(request.params.database, request.params.table).then(results => {
       return h.view('describe', {
@@ -292,9 +307,7 @@ function showTables(database) {
       });
     }).catch(err => {
       client.end();
-      return [{
-        error: 'USE error: ' + err.message
-      }];
+      return [getUseError(err, database)];
     });
   });
 }
@@ -315,9 +328,7 @@ function describeTable(database, table) {
       });
     }).catch(err => {
       client.end();
-      return [{
-        error: 'USE error: ' + err.message
-      }];
+      return [getUseError(err, database)];
     });
   });
 }

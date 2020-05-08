@@ -17,19 +17,19 @@
   },
   "homepage": "https://github.com/MusikAnimal/sql-optimizer#readme",
   "engines": {
-    "node": "6.11.0"
+    "node": "10.15.2"
   },
   "dependencies": {
     "babel-preset-env": "^1.7.0",
-    "codemirror": "^5.48.4",
+    "codemirror": "^5.53.2",
     "hapi": "16.7.0",
     "inert": "4.2.1",
     "mysql2": "^1.7.0",
-    "twig": "^1.13.0",
+    "twig": "^1.15.1",
     "vision": "4.1.1"
   },
   "devDependencies": {
-    "@babel/cli": "^7.6.0",
-    "@babel/core": "^7.6.0"
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.9.6"
   }
 }
