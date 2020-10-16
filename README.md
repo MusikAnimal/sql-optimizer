@@ -33,7 +33,7 @@ Installation:
 
       ssh -L 4711:s1.web.db.svc.eqiad.wmflabs:3306 your-username@login.tools.wmflabs.org
 
-* `cp .env.json.dist .env.json` and fill out the details. In the above example,
+* `cp env.json.dist env.json` and fill out the details. In the above example,
   the `db_port` would be `4711`.
 * `npm run-script build && npm run-script start` - note you will need to re-run this
   command as you make changes during development.
