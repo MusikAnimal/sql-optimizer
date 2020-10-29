@@ -118,7 +118,29 @@ function injectSleep(sql) {
     return sql;
 }
 
-function explain(sql, database) {
+async function getExplainConnection(pool, queryInstance) {
+    const MAX_RETRIES = 100;
+
+    for (let i = 0; i <= MAX_RETRIES; i++) {
+        console.log(`>> CONNECTION RETRY ${i + 1}`);
+        const explainConnection = await pool.getConnection();
+        const result = await explainConnection.query('SELECT @@GLOBAL.hostname');
+        const explainInstance = result[0][0]['@@GLOBAL.hostname'];
+
+        if (explainInstance === queryInstance) {
+            console.log(`SUCCESS: Connection to ${explainInstance} established`);
+            return explainConnection;
+        }
+
+        explainConnection.close();
+    }
+
+    return {
+        error: `SHOW EXPLAIN failed: Unable to establish a connection after ${MAX_RETRIES} tries.`
+    };
+}
+
+async function explain(sql, database) {
     let validation = validate(sql);
     if (validation) {
         return new Promise(resolve => resolve([validation, null]));
@@ -132,26 +154,25 @@ function explain(sql, database) {
         password: env.db_password
     });
 
-    return Promise.all([
-        pool.getConnection(),
-        pool.getConnection(),
-    ]).then(([queryConnection, explainConnection]) => {
-        return queryConnection.query(`USE ${database}`).then(() => {
+    const queryConnection = await pool.getConnection();
+    return queryConnection.query(`USE ${database}`).then(() => {
+        return queryConnection.query('SELECT @@GLOBAL.hostname').then(instanceResult => {
+            const instance = instanceResult[0][0]['@@GLOBAL.hostname'];
+
             return queryConnection.query(`SET max_statement_time = ${TIMEOUT}`).then(() => {
                 sql = injectSleep(sql);
 
                 const query = queryConnection.query(sql).then(() => {
                     console.log('SLEEP SUCCESS');
                 }).catch(err => {
-                    pool.end();
                     if (![1028, 1969].includes(err.errno)) {
                         console.log(err);
                         return {error: 'Query error: ' + err.message};
                     }
                 });
 
-                const explanation = new Promise(resolve => setTimeout(() => {
-                    console.log(`CONNECTION ID: ${queryConnection.connection.threadId}`);
+                const explanation = new Promise(resolve => setTimeout(async () => {
+                    const explainConnection = await getExplainConnection(pool, instance);
                     const explainPromise = explainConnection.query(`SHOW EXPLAIN FOR ${queryConnection.connection.threadId}`).then(result => {
                         pool.end();
                         return result[0];
@@ -167,13 +188,10 @@ function explain(sql, database) {
 
                 return Promise.all([query, explanation]);
             });
-        }).catch(err => {
-            pool.end();
-            return [getUseError(err, database), null];
         });
     }).catch(err => {
         pool.end();
-        return [{error: 'Fatal error: ' + err.message}, null];
+        return [getUseError(err, database), null];
     });
 }
 

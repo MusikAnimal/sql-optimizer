@@ -1,5 +1,95 @@
 "use strict";
 
+let getExplainConnection = (() => {
+  var _ref = _asyncToGenerator(function* (pool, queryInstance) {
+    const MAX_RETRIES = 100;
+
+    for (let i = 0; i <= MAX_RETRIES; i++) {
+      console.log(`>> CONNECTION RETRY ${i + 1}`);
+      const explainConnection = yield pool.getConnection();
+      const result = yield explainConnection.query('SELECT @@GLOBAL.hostname');
+      const explainInstance = result[0][0]['@@GLOBAL.hostname'];
+
+      if (explainInstance === queryInstance) {
+        console.log(`SUCCESS: Connection to ${explainInstance} established`);
+        return explainConnection;
+      }
+
+      explainConnection.close();
+    }
+
+    return {
+      error: `SHOW EXPLAIN failed: Unable to establish a connection after ${MAX_RETRIES} tries.`
+    };
+  });
+
+  return function getExplainConnection(_x, _x2) {
+    return _ref.apply(this, arguments);
+  };
+})();
+
+let explain = (() => {
+  var _ref2 = _asyncToGenerator(function* (sql, database) {
+    let validation = validate(sql);
+
+    if (validation) {
+      return new Promise(function (resolve) {
+        return resolve([validation, null]);
+      });
+    }
+
+    const pool = mysql.createPool({
+      database: 'enwiki_p',
+      host: env.db_host,
+      port: env.db_port,
+      user: env.db_user,
+      password: env.db_password
+    });
+    const queryConnection = yield pool.getConnection();
+    return queryConnection.query(`USE ${database}`).then(function () {
+      return queryConnection.query('SELECT @@GLOBAL.hostname').then(function (instanceResult) {
+        const instance = instanceResult[0][0]['@@GLOBAL.hostname'];
+        return queryConnection.query(`SET max_statement_time = ${TIMEOUT}`).then(function () {
+          sql = injectSleep(sql);
+          const query = queryConnection.query(sql).then(function () {
+            console.log('SLEEP SUCCESS');
+          }).catch(function (err) {
+            if (![1028, 1969].includes(err.errno)) {
+              console.log(err);
+              return {
+                error: 'Query error: ' + err.message
+              };
+            }
+          });
+          const explanation = new Promise(function (resolve) {
+            return setTimeout(_asyncToGenerator(function* () {
+              const explainConnection = yield getExplainConnection(pool, instance);
+              const explainPromise = explainConnection.query(`SHOW EXPLAIN FOR ${queryConnection.connection.threadId}`).then(function (result) {
+                pool.end();
+                return result[0];
+              }).catch(function (err) {
+                pool.end();
+                return {
+                  error: 'SHOW EXPLAIN failed: ' + err.message + ' This may be a connection issue. If you believe your query is valid, try resubmitting.'
+                };
+              });
+              return resolve(explainPromise);
+            }), 500);
+          });
+          return Promise.all([query, explanation]);
+        });
+      });
+    }).catch(function (err) {
+      pool.end();
+      return [getUseError(err, database), null];
+    });
+  });
+
+  return function explain(_x3, _x4) {
+    return _ref2.apply(this, arguments);
+  };
+})();
+
 function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { Promise.resolve(value).then(_next, _throw); } }
 
 function _asyncToGenerator(fn) { return function () { var self = this, args = arguments; return new Promise(function (resolve, reject) { var gen = fn.apply(self, args); function _next(value) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value); } function _throw(err) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err); } _next(undefined); }); }; }
@@ -122,63 +212,6 @@ function injectSleep(sql) {
   sql = sql.replace(regex, 'IN ( SELECT');
   console.log(sql);
   return sql;
-}
-
-function explain(sql, database) {
-  let validation = validate(sql);
-
-  if (validation) {
-    return new Promise(resolve => resolve([validation, null]));
-  }
-
-  const pool = mysql.createPool({
-    database: 'enwiki_p',
-    host: env.db_host,
-    port: env.db_port,
-    user: env.db_user,
-    password: env.db_password
-  });
-  return Promise.all([pool.getConnection(), pool.getConnection()]).then(([queryConnection, explainConnection]) => {
-    return queryConnection.query(`USE ${database}`).then(() => {
-      return queryConnection.query(`SET max_statement_time = ${TIMEOUT}`).then(() => {
-        sql = injectSleep(sql);
-        const query = queryConnection.query(sql).then(() => {
-          console.log('SLEEP SUCCESS');
-        }).catch(err => {
-          pool.end();
-
-          if (![1028, 1969].includes(err.errno)) {
-            console.log(err);
-            return {
-              error: 'Query error: ' + err.message
-            };
-          }
-        });
-        const explanation = new Promise(resolve => setTimeout(() => {
-          console.log(`CONNECTION ID: ${queryConnection.connection.threadId}`);
-          const explainPromise = explainConnection.query(`SHOW EXPLAIN FOR ${queryConnection.connection.threadId}`).then(result => {
-            pool.end();
-            return result[0];
-          }).catch(err => {
-            pool.end();
-            return {
-              error: 'SHOW EXPLAIN failed: ' + err.message + ' This may be a connection issue. If you believe your query is valid, try resubmitting.'
-            };
-          });
-          return resolve(explainPromise);
-        }, 500));
-        return Promise.all([query, explanation]);
-      });
-    }).catch(err => {
-      pool.end();
-      return [getUseError(err, database), null];
-    });
-  }).catch(err => {
-    pool.end();
-    return [{
-      error: 'Fatal error: ' + err.message
-    }, null];
-  });
 }
 
 function getTips(sql, explanation) {
@@ -336,7 +369,7 @@ function describeTable(database, table) {
 
 
 const provision = (() => {
-  var _ref = _asyncToGenerator(function* () {
+  var _ref4 = _asyncToGenerator(function* () {
     yield server.register(Vision);
     yield server.register(require('inert'));
     server.views({
@@ -361,7 +394,7 @@ const provision = (() => {
   });
 
   return function provision() {
-    return _ref.apply(this, arguments);
+    return _ref4.apply(this, arguments);
   };
 })();
 
