@@ -31,10 +31,13 @@ Installation:
   It is important to connect to a specific database server.
   The command will be something similar to:
 
-      ssh -L 4711:s1.web.db.svc.eqiad.wmflabs:3306 your-username@login.tools.wmflabs.org
+      ssh -L 4711:enwiki.web.db.svc.eqiad.wmflabs:3306 your-username@login.tools.wmflabs.org
 
 * `cp env.json.dist env.json` and fill out the details. In the above example,
   the `db_port` would be `4711`.
 * `npm run-script build && npm run-script start` - note you will need to re-run this
   command as you make changes during development.
 * You should be up and running at http://localhost:8000
+* Note you can only query against the database you set up in your SSH tunnel (`enwiki` in the above example).
+  In production, the host in env.json is set to `*.web.db.svc.eqiad.wmflabs` which gets changed to the
+  appropriate host for the given database at run time.
