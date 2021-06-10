@@ -147,8 +147,8 @@ async function explain(sql, database) {
     }
 
     const pool = mysql.createPool({
-        database: 'enwiki_p',
-        host: env.db_host,
+        database: database,
+        host: env.db_host.replace('*', database.replace(/_p$/, '')),
         port: env.db_port,
         user: env.db_user,
         password: env.db_password
